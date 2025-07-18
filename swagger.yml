@@ -1,0 +1,672 @@
+openapi: 3.0.0
+info:
+  title: Pediforte Student Management API
+  description: API for managing student registrations, rules, and admin operations
+  version: "1.0.0"
+servers:
+  - url: http://localhost:5000/api
+components:
+  securitySchemes:
+    sessionAuth:
+      type: apiKey
+      in: cookie
+      name: session
+      description: Session cookie for admin authentication
+    headerAuth:
+      type: apiKey
+      in: header
+      name: X-Session-ID
+      description: Session ID for admin authentication (alternative to cookie)
+  schemas:
+    StudentInformation:
+      type: object
+      properties:
+        id:
+          type: integer
+        surname:
+          type: string
+        given_name:
+          type: string
+        other_names:
+          type: string
+        email_address:
+          type: string
+        phone_number:
+          type: string
+        home_address:
+          type: string
+        dob:
+          type: string
+          format: date
+        gender:
+          type: string
+        course_info:
+          $ref: '#/components/schemas/CourseInformation'
+        terms_agreed:
+          type: boolean
+        terms_agreed_at:
+          type: string
+          format: date-time
+    StudentInformationInput:
+      type: object
+      required:
+        - surname
+        - given_name
+        - email_address
+        - course_info
+        - terms_agreed
+      properties:
+        surname:
+          type: string
+        given_name:
+          type: string
+        other_names:
+          type: string
+        email_address:
+          type: string
+        phone_number:
+          type: string
+        home_address:
+          type: string
+        dob:
+          type: string
+          format: date
+        gender:
+          type: string
+        course_info:
+          $ref: '#/components/schemas/CourseInformationInput'
+        terms_agreed:
+          type: boolean
+    CourseInformation:
+      type: object
+      properties:
+        preferred_course:
+          type: string
+        objectives:
+          type: object
+        prior_computer_knowledge:
+          type: string
+        seek_employment_opportunities:
+          type: boolean
+        hear_about_pediforte:
+          type: string
+        registration_date:
+          type: string
+          format: date
+        resumption_date:
+          type: string
+          format: date
+    CourseInformationInput:
+      type: object
+      required:
+        - preferred_course
+      properties:
+        preferred_course:
+          type: string
+        objectives:
+          type: object
+        prior_computer_knowledge:
+          type: string
+        seek_employment_opportunities:
+          type: boolean
+        hear_about_pediforte:
+          type: string
+        registration_date:
+          type: string
+          format: date
+        resumption_date:
+          type: string
+          format: date
+    AdminLogin:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+    Admin:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        email:
+          type: string
+    StudentRules:
+      type: object
+      properties:
+        rules_content:
+          type: string
+        version:
+          type: string
+    CourseOptions:
+      type: object
+      properties:
+        courses:
+          type: array
+          items:
+            type: string
+        payment_options:
+          type: array
+          items:
+            type: string
+    DashboardStats:
+      type: object
+      properties:
+        total_students:
+          type: integer
+        recent_registrations:
+          type: integer
+        course_statistics:
+          type: object
+          additionalProperties:
+            type: integer
+        course_options:
+          type: array
+          items:
+            type: string
+        payment_methods:
+          type: array
+          items:
+            type: string
+paths:
+  /admin/login:
+    post:
+      tags:
+        - Admin Authentication
+      summary: Admin login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminLogin'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  admin:
+                    $ref: '#/components/schemas/Admin'
+        '401':
+          description: Invalid credentials
+  /admin/logout:
+    post:
+      tags:
+        - Admin Authentication
+      summary: Admin logout
+      security:
+        - sessionAuth: []
+        - headerAuth: []
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+  /students:
+    get:
+      tags:
+        - Student Management
+      summary: Get list of students
+      responses:
+        '200':
+          description: List of students
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StudentInformation'
+    post:
+      tags:
+        - Student Management
+      summary: Create a new student
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StudentInformationInput'
+      responses:
+        '201':
+          description: Student created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentInformation'
+        '400':
+          description: Missing required fields or invalid course
+  /students/{form_id}:
+    get:
+      tags:
+        - Student Management
+      summary: Get student by form ID
+      parameters:
+        - in: path
+          name: form_id
+          required: true
+          schema:
+            type: integer
+          description: ID of the student
+      responses:
+        '200':
+          description: Student details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentInformation'
+        '404':
+          description: Student not found
+    /students/{student_id}/passport:
+    post:
+      tags:
+        - Student Management
+      summary: Upload student passport photo
+      parameters:
+        - in: path
+          name: student_id
+          required: true
+          schema:
+            type: integer
+          description: ID of the student
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+              required:
+                - file
+      responses:
+        '200':
+          description: File uploaded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  filename:
+                    type: string
+                  student_id:
+                    type: integer
+        '400':
+          description: Invalid file or missing file
+        '404':
+          description: Student not found
+  /students/{student_id}/agreement:
+    post:
+      tags:
+        - Student Rules
+      summary: Record student agreement to rules
+      parameters:
+        - in: path
+          name: student_id
+          required: true
+          schema:
+            type: integer
+          description: ID of the student
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                agreed:
+                  type: boolean
+              required:
+                - agreed
+      responses:
+        '201':
+          description: Terms accepted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  agreement:
+                    type: object
+        '400':
+          description: Invalid input
+        '404':
+          description: Student not found
+    get:
+      tags:
+        - Student Rules
+      summary: Get student's agreement history (admin only)
+      security:
+        - sessionAuth: []
+        - headerAuth: []
+      parameters:
+        - in: path
+          name: student_id
+          required: true
+          schema:
+            type: integer
+          description: ID of the student
+      responses:
+        '200':
+          description: Agreement history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+        '401':
+          description: Unauthorized
+        '404':
+          description: Student not found
+  /student-rules:
+    get:
+      tags:
+        - Student Rules
+      summary: Get active student rules
+      responses:
+        '200':
+          description: Active student rules
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentRules'
+  /course-options:
+    get:
+      tags:
+        - Course Options
+      summary: Get available courses and payment options
+      responses:
+        '200':
+          description: Course and payment options
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CourseOptions'
+  /admin/students:
+    get:
+      tags:
+        - Admin Operations
+      summary: Get all students (admin)
+      security:
+        - sessionAuth: []
+        - headerAuth: []
+      responses:
+        '200':
+          description: List of all students
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StudentInformation'
+        '401':
+          description: Unauthorized
+  /admin/students/{student_id}:
+    get:
+      tags:
+        - Admin Operations
+      summary: Get student details by ID (admin)
+      security:
+        - sessionAuth: []
+        - headerAuth: []
+      parameters:
+        - in: path
+          name: student_id
+          required: true
+          schema:
+            type: integer
+          description: ID of the student
+      responses:
+        '200':
+          description: Student details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentInformation'
+        '401':
+          description: Unauthorized
+        '404':
+          description: Student not found
+    put:
+      tags:
+        - Admin Operations
+      summary: Update student details (admin)
+      security:
+        - sessionAuth: []
+        - headerAuth: []
+      parameters:
+        - in: path
+          name: student_id
+          required: true
+          schema:
+            type: integer
+          description: ID of the student
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StudentInformationInput'
+      responses:
+        '200':
+          description: Student updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentInformation'
+        '400':
+          description: Invalid input
+        '401':
+          description: Unauthorized
+        '404':
+          description: Student not found
+    delete:
+      tags:
+        - Admin Operations
+      summary: Delete a student (admin)
+      security:
+        - sessionAuth: []
+        - headerAuth: []
+      parameters:
+        - in: path
+          name: student_id
+          required: true
+          schema:
+            type: integer
+          description: ID of the student
+      responses:
+        '200':
+          description: Student deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '401':
+          description: Unauthorized
+        '404':
+          description: Student not found
+  /admin/student-rules:
+    get:
+      tags:
+        - Admin Operations
+      summary: Get all student rules versions (admin)
+      security:
+        - sessionAuth: []
+        - headerAuth: []
+      responses:
+        '200':
+          description: List of all rules versions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StudentRules'
+        '401':
+          description: Unauthorized
+    post:
+      tags:
+        - Admin Operations
+      summary: Create new student rules version (admin)
+      security:
+        - sessionAuth: []
+        - headerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rules_content:
+                  type: string
+                version:
+                  type: string
+              required:
+                - rules_content
+      responses:
+        '201':
+          description: Rules created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentRules'
+        '400':
+          description: Invalid input
+        '401':
+          description: Unauthorized
+    put:
+      tags:
+        - Admin Operations
+      summary: Update active student rules (admin)
+      security:
+        - sessionAuth: []
+        - headerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rules_content:
+                  type: string
+                version:
+                  type: string
+              required:
+                - rules_content
+      responses:
+        '200':
+          description: Rules updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentRules'
+        '400':
+          description: Invalid input
+        '401':
+          description: Unauthorized
+  /admin/rules-analytics:
+    get:
+      tags:
+        - Admin Operations
+      summary: Get rules agreement analytics (admin)
+      security:
+        - sessionAuth: []
+        - headerAuth: []
+      responses:
+        '200':
+          description: Rules agreement analytics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_students:
+                    type: integer
+                  students_agreed:
+                    type: integer
+                  students_not_agreed:
+                    type: integer
+                  agreement_percentage:
+                    type: number
+                  current_version_agreements:
+                    type: integer
+                  active_rules_version:
+                    type: string
+        '401':
+          description: Unauthorized
+  /admin/export:
+    get:
+      tags:
+        - Admin Operations
+      summary: Export student data as CSV
+      security:
+        - sessionAuth: []
+        - headerAuth: []
+      parameters:
+        - in: query
+          name: type
+          schema:
+            type: string
+            enum: [all, registered, pending]
+          description: Type of students to export
+        - in: query
+          name: format
+          schema:
+            type: string
+            enum: [csv]
+          description: Export format
+      responses:
+        '200':
+          description: CSV file downloaded
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Invalid query parameters
+        '401':
+          description: Unauthorized
+  /admin/dashboard:
+    get:
+      tags:
+        - Admin Operations
+      summary: Get dashboard statistics (admin)
+      security:
+        - sessionAuth: []
+        - headerAuth: []
+      responses:
+        '200':
+          description: Dashboard statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardStats'
+        '401':
+          description: Unauthorized

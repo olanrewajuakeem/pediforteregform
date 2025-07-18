@@ -3,6 +3,7 @@ from flask_restful import Api, Resource, abort
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
+from flasgger import Swagger
 from werkzeug.utils import secure_filename
 from models import (
     db, StudentInformation, CourseInformation, PaymentInformation, Admin,
@@ -24,11 +25,36 @@ load_dotenv()
 app = Flask(__name__)
 api = Api(app)
 
+# Swagger configuration
+swagger_config = {
+    "openapi": "3.0.0",
+    "info": {
+        "title": "Pediforte Student Management API",
+        "description": "API for managing student registrations, rules, and admin operations",
+        "version": "1.0.0"
+    },
+    "headers": [],
+    "specs": [
+        {
+            "endpoint": "apispec",
+            "route": "/apispec.json",
+            "rule_filter": lambda rule: True,
+            "model_filter": lambda tag: True,
+        }
+    ],
+    "static_url_path": "/flasgger_static",
+    "swagger_ui": True,
+    "specs_route": "/apidocs/",
+    "blueprint_name": "pediforte_flasgger"
+}
+
+swagger = Swagger(app, template_file='swagger.yml', config=swagger_config)
+
 # Configuration
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///database.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'fallback-secret-key')
-app.config['UPLOAD_FOLDER'] = 'uploads/passports'
+app.config['UPLOAD_FOLDER'] = 'Uploads/passports'
 app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024  # 5MB max file size
 
 # Create upload directory
@@ -38,11 +64,16 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 db.init_app(app)
 migrate = Migrate(app, db)
 
-# Enable CORS for Angular frontend
-CORS(app, resources={r"/*": {"origins": "http://localhost:4200"}}, supports_credentials=True)
+# Enable CORS for API routes
+CORS(app, resources={r"/api/*": {
+    "origins": ["http://localhost:4200", "http://127.0.0.1:5000", "http://localhost:5000"],
+    "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    "allow_headers": ["Content-Type", "Authorization", "X-Session-ID"]
+}}, supports_credentials=True)
 
 # Allowed file extensions for passport upload
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf'}
+
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -236,7 +267,7 @@ class AdminRulesAnalytics(Resource):
             'active_rules_version': active_rules.version if active_rules else None
         }, 200
 
-# Student Form Resources (Public - No Payment Info)
+# Student Form Resources 
 class StudentForm(Resource):
     def get(self, form_id):
         student_info = StudentInformation.query.get_or_404(form_id)
@@ -321,7 +352,7 @@ class StudentFormList(Resource):
                 resumption_date=datetime.strptime(course_data['resumption_date'], '%Y-%m-%d').date() if course_data.get('resumption_date') else None
             )
             db.session.add(course_info)
-            db.session.flush()  # Get the ID
+            db.session.flush()  
 
             # Create payment information with default values
             payment_info = PaymentInformation(
@@ -330,7 +361,7 @@ class StudentFormList(Resource):
                 payment_status='pending'
             )
             db.session.add(payment_info)
-            db.session.flush()  # Get the ID
+            db.session.flush()  
 
             # Create student information
             new_student = StudentInformation(
@@ -348,7 +379,7 @@ class StudentFormList(Resource):
                 terms_agreed_at=datetime.utcnow()
             )
             db.session.add(new_student)
-            db.session.flush()  # Get the ID before committing
+            db.session.flush()  
 
             # Record terms agreement
             active_rules = StudentRules.get_active_rules()
@@ -368,7 +399,7 @@ class StudentFormList(Resource):
             db.session.rollback()
             abort(500, message=f"Error creating student: {str(e)}")
 
-# Admin Resources (Include Payment Info)
+# Admin Resources 
 class AdminStudentForm(Resource):
     @admin_required
     def get(self, form_id):
@@ -419,7 +450,7 @@ class AdminStudentForm(Resource):
             if 'resumption_date' in course_data and course_data['resumption_date']:
                 student_info.course_info.resumption_date = datetime.strptime(course_data['resumption_date'], '%Y-%m-%d').date()
 
-        # Update payment information (admin only)
+        # Update payment information
         if 'payment_info' in data:
             payment_data = data['payment_info']
             if 'course_price' in payment_data:
@@ -442,7 +473,7 @@ class AdminStudentForm(Resource):
     def delete(self, form_id):
         student_info = StudentInformation.query.get_or_404(form_id)
         
-        # Delete associated passport file if exists
+        # Delete passport file if exists
         if student_info.passport_path and os.path.exists(student_info.passport_path):
             os.remove(student_info.passport_path)
         
@@ -529,39 +560,39 @@ class AdminStudentFormList(Resource):
 # Passport Upload Resource
 class PassportUpload(Resource):
     def post(self, student_id):
-        if 'passport' not in request.files:
-            abort(400, message="No passport file provided")
-        
-        file = request.files['passport']
+        if 'file' not in request.files:
+            abort(400, message="No file provided")
+        file = request.files['file']
         if file.filename == '':
             abort(400, message="No file selected")
-        
         if not allowed_file(file.filename):
             abort(400, message="Invalid file type. Allowed: png, jpg, jpeg, gif, pdf")
-        
         student = StudentInformation.query.get_or_404(student_id)
-        
         # Delete old passport file if exists
         if student.passport_path and os.path.exists(student.passport_path):
-            os.remove(student.passport_path)
-        
+            try:
+                os.remove(student.passport_path)
+            except OSError as e:
+                abort(500, message=f"Error deleting old file: {str(e)}")
         # Save new file
         filename = secure_filename(f"student_{student_id}_{file.filename}")
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(file_path)
-        
+        try:
+            file.save(file_path)
+        except Exception as e:
+            abort(500, message=f"Error saving file: {str(e)}")
         # Update student record
         student.passport_filename = filename
         student.passport_path = file_path
         student.updated_at = datetime.utcnow()
         db.session.commit()
-        
         return {
-            'message': 'Passport uploaded successfully',
+            'message': 'File uploaded successfully',
             'filename': filename,
             'student_id': student_id
         }, 200
-
+    
+    
 # Statistics and Analytics Resources
 class AdminDashboard(Resource):
     @admin_required
@@ -600,7 +631,7 @@ class ExportData(Resource):
         output = io.StringIO()
         writer = csv.writer(output)
         
-        # Write headers
+        # headers
         headers = [
             'ID', 'Full Name', 'Surname', 'Given Name', 'Other Names',
             'Email', 'Phone', 'Address', 'DOB', 'Gender',
@@ -610,7 +641,7 @@ class ExportData(Resource):
         ]
         writer.writerow(headers)
         
-        # Write data
+        #  data
         for student in students:
             row = [
                 student.id,
@@ -636,7 +667,7 @@ class ExportData(Resource):
             ]
             writer.writerow(row)
         
-        # Prepare file for download
+        #  download
         output.seek(0)
         
         # Create a BytesIO object for the response
@@ -687,7 +718,7 @@ api.add_resource(ExportData, '/api/admin/export')
 # File upload routes
 api.add_resource(PassportUpload, '/api/students/<int:student_id>/passport')
 
-# Create database tables and default admin
+# Create database tables and admin
 with app.app_context():
     db.create_all()
     
