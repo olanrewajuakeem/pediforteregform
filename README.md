@@ -10,7 +10,7 @@ This is a RESTful API built with Flask for managing student registration, rules 
 - Passport upload
 - Dashboard analytics
 - CSV data export
-- API tested using `test_api.py`
+- API tested using 
 
 ##  Stack
 
