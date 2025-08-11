@@ -1,16 +1,16 @@
 # Pediforte API
 
-A RESTful API built with Flask for managing student registrations, rules agreements, admin authentication, passport uploads, and analytics for Pediforte.
+A RESTful API built with Flask for managing student registrations, rules agreements, admin authentication, and analytics for Pediforte.
 
 ## Features
 
 - **Student Registration**: Create and manage student profiles with course and payment information.
-- **Admin Authentication**: Secure login, registration, and logout for administrators.
+- **Admin Authentication**: Secure login for administrators using HTTP Basic Auth.
+- **Admin Operations**: CRUD operations for student records, with filtering by gender, preferred course, objectives, payment status, and terms agreed.
 - **Student Rules Management**: Manage and track student agreements to rules.
-- **Passport Upload**: Upload student passport photos (`.png`, `.jpg`, `.jpeg`, `.gif`, `.pdf`, <5MB).
 - **Dashboard Analytics**: View statistics on student registrations, courses, and payments.
-- **CSV Export**: Export student data as CSV for reporting.
-- **API Testing**: Automated tests via `test_api.py`.
+- **CSV/PDF Export**: Export student data as CSV or PDF reports with optional filters.
+- **API Testing**: VIA Swagger UI.
 - **CORS Support**: Configured for frontend integration (e.g., `http://localhost:4200`).
 
 ## Tech Stack
@@ -20,6 +20,8 @@ A RESTful API built with Flask for managing student registrations, rules agreeme
 - **SQLAlchemy** + **Flask-Migrate**: For database migrations.
 - **SQLite**: Lightweight database (configurable for other databases via `DATABASE_URL`).
 - **Flasgger**: Swagger UI for API documentation (`/apidocs/`).
+- **Flask-HTTPAuth**: For admin authentication.
+- **ReportLab**: For generating PDF reports.
 - **CORS**: Cross-Origin Resource Sharing for frontend integration.
 
 ## Prerequisites
@@ -33,7 +35,7 @@ A RESTful API built with Flask for managing student registrations, rules agreeme
 
 1. **Clone the Repository**:
    ```bash
-   git clone repo
+   git clone <repo-url>
    cd pediforte
 
 python3 -m venv venv
